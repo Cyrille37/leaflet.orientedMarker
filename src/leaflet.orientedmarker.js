@@ -7,10 +7,23 @@
     L.OrientedMarker = L.Marker.extend({
         options: {
             angle: 0,
+            
             orientationLineColor: 'red',
             orientationLineWeight: 5,
-            orientationLineOpacity: 0.8
+            orientationLineOpacity: 0.8,
+
+						viewLines: false,
+						viewLinesFov: 120,
+						viewLinesLength: 200,
+            viewLinesColor: 'red',
+            viewLinesWeight: 2,
+            viewLinesLineOpacity: 0.25 // does not work (Chromium)
         },
+
+				getAngle: function()
+				{
+					return this.options.angle();
+				},
 
 				/**
 				 * Set the angle.
@@ -51,7 +64,93 @@
                 i = this._shadow;
                 this._orienteIcon(i, a, s)
             }
+            
+            this._updateViewLines();
         },
+
+				// =====================================
+				setViewLinesFov( fov )
+				{
+					this.options.viewLinesFov = fov;
+					return this ;
+				},
+				getViewLinesFov()
+				{
+					return this.options.viewLinesFov ;
+				},
+
+				_viewLines: null ,
+        _updateViewLines: function()
+        {
+					if( ! this.options.viewLines )
+						return ;
+
+					var ac = (this.options.angle)*Math.PI / 180,
+					ao = this.options.viewLinesFov / 2,
+					al = (this.options.angle - ao)*Math.PI / 180,
+					ar = (this.options.angle + ao)*Math.PI / 180 ;
+					var transformation = [
+						new L.Transformation(
+									1, Math.sin(al) * this.options.viewLinesLength,
+									1, Math.cos(al) * -this.options.viewLinesLength
+							),
+						new L.Transformation(
+									1, Math.sin(ac) * this.options.viewLinesLength,
+									1, Math.cos(ac) * -this.options.viewLinesLength
+							),
+						new L.Transformation(
+									1, Math.sin(ar) * this.options.viewLinesLength,
+									1, Math.cos(ar) * -this.options.viewLinesLength
+							)
+					];
+					var pointB = [
+						this._map.layerPointToLatLng(
+								transformation[0].transform(this._map.latLngToLayerPoint(this._latlng))
+						),
+						this._map.layerPointToLatLng(
+								transformation[1].transform(this._map.latLngToLayerPoint(this._latlng))
+						),
+						this._map.layerPointToLatLng(
+								transformation[2].transform(this._map.latLngToLayerPoint(this._latlng))
+						)
+					];
+
+					if( this._viewLines == null )
+					{
+						this._viewLines = [
+							new L.Polyline( [this._latlng, pointB[0]], {
+								color: this.options.viewLinesColor,
+								weight: this.options.viewLinesWeight,
+								opacity: this.options.viewLinesOpacity,
+								smoothFactor: 1
+							}),
+							new L.Polyline( [this._latlng, pointB[1]], {
+								color: /*this.options.viewLinesColor*/ 'gray',
+								weight: this.options.viewLinesWeight,
+								opacity: this.options.viewLinesOpacity,
+								smoothFactor: 1
+							}),
+							new L.Polyline( [this._latlng, pointB[2]], {
+								color: this.options.viewLinesColor,
+								weight: this.options.viewLinesWeight,
+								opacity: this.options.viewLinesOpacity,
+								smoothFactor: 1
+							})
+						];
+						this._viewLines[0].addTo(this._map);
+						this._viewLines[1].addTo(this._map);
+						this._viewLines[2].addTo(this._map);
+					}
+					else
+					{
+						this._viewLines[0].setLatLngs([this._latlng, pointB[0]]);
+						this._viewLines[1].setLatLngs([this._latlng, pointB[1]]);
+						this._viewLines[2].setLatLngs([this._latlng, pointB[2]]);
+					}
+
+				},
+				// =====================================
+
         _orienteIcon: function (i, a, s) {
             if (!s) {
                 i.style[L.DomUtil.TRANSFORM] = this._initIconStyle + ' rotate(' + this.options.angle + 'deg)';
